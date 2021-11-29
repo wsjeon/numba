@@ -737,12 +737,14 @@ class NdExpandDims(CallableTemplate):
 
     def generic(self):
         def typer(a, axis):
-            if (not isinstance(a, types.Array)
-                or not isinstance(axis, types.Integer)):
-                return
-
-            layout = a.layout if a.ndim <= 1 else 'A'
-            return a.copy(ndim=a.ndim + 1, layout=layout)
+            if isinstance(a, types.Array):
+                layout = a.layout if a.ndim <= 1 else 'A'
+                if isinstance(axis, types.Integer):
+                    return a.copy(ndim=a.ndim + 1, layout=layout)
+                elif isinstance(axis, types.BaseTuple):
+                    return a.copy(ndim=a.ndim + axis.count, layout=layout)
+                else:
+                    return
 
         return typer
 

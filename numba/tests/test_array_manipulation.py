@@ -408,11 +408,13 @@ class TestArrayManipulation(MemoryLeakMixin, TestCase):
         # 1d
         arr = np.arange(5)
         check_all_axes(arr)
+        check(arr, (1, 2))
         # 3d (C, F, A)
         arr = np.arange(24).reshape((2, 3, 4))
         check_all_axes(arr)
         check_all_axes(arr.T)
         check_all_axes(arr[::-1])
+        check(arr, (1, 3))
         # 0d
         arr = np.array(42)
         check_all_axes(arr)

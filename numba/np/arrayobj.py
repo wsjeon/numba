@@ -4602,8 +4602,8 @@ def np_array(context, builder, sig, args):
 
 
 def _normalize_axis(context, builder, func_name, ndim, axis):
-    zero = axis.type(0)
-    ll_ndim = axis.type(ndim)
+    zero = cgutils.intp_t(0)
+    ll_ndim = cgutils.intp_t(ndim)
 
     # Normalize negative axis
     is_neg_axis = builder.icmp_signed('<', axis, zero)
@@ -4626,25 +4626,73 @@ def _insert_axis_in_shape(context, builder, orig_shape, ndim, axis):
     e.g. given original shape (2, 3, 4) and axis=2,
     the returned new shape is (2, 3, 1, 4).
     """
-    assert len(orig_shape) == ndim - 1
+    num_new_axes = len(axis)
+    assert len(orig_shape) == ndim - num_new_axes
 
     ll_shty = ir.ArrayType(cgutils.intp_t, ndim)
     shapes = cgutils.alloca_once(builder, ll_shty)
-
+    zero = cgutils.intp_t(0)
     one = cgutils.intp_t(1)
+    minus_one = cgutils.intp_t(-1)
 
-    # 1. copy original sizes at appropriate places
-    for dim in range(ndim - 1):
-        ll_dim = cgutils.intp_t(dim)
-        after_axis = builder.icmp_signed('>=', ll_dim, axis)
-        sh = orig_shape[dim]
-        idx = builder.select(after_axis,
-                             builder.add(ll_dim, one),
-                             ll_dim)
-        builder.store(sh, cgutils.gep_inbounds(builder, shapes, 0, idx))
+    # Construct an original shape array at LLVM level
+    ll_shty = ir.ArrayType(cgutils.intp_t, len(orig_shape))
+    orig_shapes_lower = cgutils.alloca_once(builder, ll_shty)
+    for idx in range(len(orig_shape)):
+        ll_idx = cgutils.intp_t(idx)
+        builder.store(orig_shape[idx], cgutils.gep_inbounds(
+            builder, orig_shapes_lower, 0, ll_idx))
 
-    # 2. insert new size (1) at axis dimension
-    builder.store(one, cgutils.gep_inbounds(builder, shapes, 0, axis))
+    # 1. Initialize new shape array with -1
+    for idx in range(ndim):
+        ll_idx = cgutils.intp_t(idx)
+        builder.store(minus_one, cgutils.gep_inbounds(
+            builder, shapes, 0, ll_idx))
+
+    # 2. Replace the new shapes with 1 using their index array i.e. axis
+    for idx in range(num_new_axes):
+        ll_idx = cgutils.intp_t(idx)
+        new_axis_idx = axis[idx]
+        is_already_one = builder.icmp_signed(
+            '==',
+            builder.load(
+                cgutils.gep_inbounds(builder, shapes, 0, new_axis_idx)
+            ),
+            one
+        )
+
+        with builder.if_then(is_already_one):
+            context.call_conv.return_user_exc(
+                builder, ValueError, ("An axis is being repeated",)
+            )
+        builder.store(one, cgutils.gep_inbounds(
+            builder, shapes, 0, new_axis_idx))
+
+    # 3. Incrementally put original dimensions into indices that are -1
+    orig_shape_idx = cgutils.alloca_once_value(builder, zero)
+    for idx in range(ndim):
+        ll_idx = cgutils.intp_t(idx)
+        orig_shape_val = builder.load(cgutils.gep_inbounds(
+            builder, orig_shapes_lower, 0, builder.load(orig_shape_idx))
+        )
+        # If the shapes[idx] == -1
+        # put in the original shape at orig_shape_idx in the original
+        # shape array and increment it by one. (else do nothing)
+        after_axis = builder.icmp_signed(
+            '==',
+            builder.load(cgutils.gep_inbounds(builder, shapes, 0, idx)),
+            minus_one
+        )
+
+        with builder.if_then(after_axis):
+            builder.store(
+                orig_shape_val,
+                cgutils.gep_inbounds(builder, shapes, 0, idx)
+            )
+            builder.store(
+                builder.add(builder.load(orig_shape_idx), one),
+                orig_shape_idx
+            )
 
     return cgutils.unpack_tuple(builder, builder.load(shapes))
 
@@ -4653,27 +4701,60 @@ def _insert_axis_in_strides(context, builder, orig_strides, ndim, axis):
     """
     Same as _insert_axis_in_shape(), but with a strides array.
     """
-    assert len(orig_strides) == ndim - 1
+    num_new_axes = len(axis)
+    assert len(orig_strides) == ndim - num_new_axes
 
     ll_shty = ir.ArrayType(cgutils.intp_t, ndim)
     strides = cgutils.alloca_once(builder, ll_shty)
 
-    one = cgutils.intp_t(1)
     zero = cgutils.intp_t(0)
+    one = cgutils.intp_t(1)
+    minus_one = cgutils.intp_t(-1)
 
-    # 1. copy original strides at appropriate places
-    for dim in range(ndim - 1):
-        ll_dim = cgutils.intp_t(dim)
-        after_axis = builder.icmp_signed('>=', ll_dim, axis)
-        idx = builder.select(after_axis,
-                             builder.add(ll_dim, one),
-                             ll_dim)
-        builder.store(orig_strides[dim],
-                      cgutils.gep_inbounds(builder, strides, 0, idx))
+    # Construct an original shape array at LLVM level
+    ll_shty = ir.ArrayType(cgutils.intp_t, len(orig_strides))
+    orig_strides_lower = cgutils.alloca_once(builder, ll_shty)
+    for idx in range(len(orig_strides)):
+        ll_idx = cgutils.intp_t(idx)
+        builder.store(orig_strides[idx], cgutils.gep_inbounds(
+            builder, orig_strides_lower, 0, ll_idx))
 
-    # 2. insert new stride at axis dimension
-    # (the value is indifferent for a 1-sized dimension, we use 0)
-    builder.store(zero, cgutils.gep_inbounds(builder, strides, 0, axis))
+    # 1. Initialize new shape array with -1
+    for idx in range(ndim):
+        ll_idx = cgutils.intp_t(idx)
+        builder.store(minus_one, cgutils.gep_inbounds(
+            builder, strides, 0, ll_idx))
+
+    # 2. Replace the new strides with to 0 using their index array i.e. axis
+    for idx in range(num_new_axes):
+        ll_idx = cgutils.intp_t(idx)
+        new_axis_idx = axis[idx]
+        builder.store(zero, cgutils.gep_inbounds(
+            builder, strides, 0, new_axis_idx))
+
+    # 3. Incrementally put original strides into indices that are -1
+    orig_stride_idx = cgutils.alloca_once_value(builder, zero)
+    for idx in range(ndim):
+        ll_idx = cgutils.intp_t(idx)
+        orig_stride_val = builder.load(cgutils.gep_inbounds(
+            builder, orig_strides_lower, 0, builder.load(orig_stride_idx))
+        )
+        after_axis = builder.icmp_signed(
+            '==',
+            builder.load(
+                cgutils.gep_inbounds(builder, strides, 0, idx)
+            ),
+            minus_one
+        )
+        with builder.if_then(after_axis):
+            builder.store(
+                orig_stride_val,
+                cgutils.gep_inbounds(builder, strides, 0, idx)
+            )
+            builder.store(
+                builder.add(builder.load(orig_stride_idx),one),
+                orig_stride_idx
+            )
 
     return cgutils.unpack_tuple(builder, builder.load(strides))
 
@@ -4692,6 +4773,8 @@ def expand_dims(context, builder, sig, args, axis):
     shapes = cgutils.unpack_tuple(builder, arr.shape)
     strides = cgutils.unpack_tuple(builder, arr.strides)
 
+    if not isinstance(axis, list):
+        axis = [axis]
     new_shapes = _insert_axis_in_shape(context, builder, shapes, ndim, axis)
     new_strides = _insert_axis_in_strides(context, builder, strides, ndim, axis)
 
@@ -4713,6 +4796,19 @@ def np_expand_dims(context, builder, sig, args):
                            sig.return_type.ndim, axis)
 
     ret = expand_dims(context, builder, sig, args, axis)
+    return impl_ret_borrowed(context, builder, sig.return_type, ret)
+
+
+@glue_lowering(np.expand_dims, types.Array, types.BaseTuple)
+def np_expand_dims_multiple(context, builder, sig, args):
+    axes_types = list(sig.args[1])
+    axes = cgutils.unpack_tuple(builder, args[1])
+    for i, axis in enumerate(axes):
+        context.cast(builder, axes[i], axes_types[i], types.intp)
+        axes[i] = _normalize_axis(context, builder, "np.expand_dims",
+                                  sig.return_type.ndim, axis)
+
+    ret = expand_dims(context, builder, sig, args, axes)
     return impl_ret_borrowed(context, builder, sig.return_type, ret)
 
 
