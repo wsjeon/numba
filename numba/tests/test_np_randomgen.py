@@ -19,7 +19,8 @@ class TestRandomGenerators(TestCase):
         # Check parity for different size cases
         for size in [None, (), (100,), (10,20,30)]:
             numba_res = distribution_func(numba_rng_instance, size)
-            numpy_res = distribution_func.py_func(numpy_rng_instance, size)
+            numpy_res = distribution_func.py_func(numpy_rng_instance,
+                                                  size)
 
             assert np.allclose(numba_res, numpy_res)
 
@@ -34,5 +35,70 @@ class TestRandomGenerators(TestCase):
 
     def test_random(self):
         dist_func = lambda x, size:x.random(size=size)
+        self.check_numpy_parity(dist_func)
+        self.check_numpy_parity(dist_func, bitgen_instance=MT19937)
+
+        dist_func = lambda x, size:x.random(size=size, dtype=np.float32)
+        self.check_numpy_parity(dist_func)
+        self.check_numpy_parity(dist_func, bitgen_instance=MT19937)
+
+    def test_standard_normal(self):
+        dist_func = lambda x, size:\
+            x.standard_normal(size=size)
+        self.check_numpy_parity(dist_func)
+        self.check_numpy_parity(dist_func, bitgen_instance=MT19937)
+
+        dist_func = lambda x, size:\
+            x.standard_normal(size=size, dtype=np.float32)
+        self.check_numpy_parity(dist_func)
+        self.check_numpy_parity(dist_func, bitgen_instance=MT19937)
+
+    def test_standard_exponential(self):
+        dist_func = lambda x, size:\
+            x.standard_exponential(size=size)
+        self.check_numpy_parity(dist_func)
+        self.check_numpy_parity(dist_func, bitgen_instance=MT19937)
+
+        dist_func = lambda x, size:\
+            x.standard_exponential(size=size, dtype=np.float32)
+        self.check_numpy_parity(dist_func)
+        self.check_numpy_parity(dist_func, bitgen_instance=MT19937)
+
+        dist_func = lambda x, size:\
+            x.standard_exponential(size=size, method='inv')
+        self.check_numpy_parity(dist_func)
+        self.check_numpy_parity(dist_func, bitgen_instance=MT19937)
+
+        dist_func = lambda x, size:\
+            x.standard_exponential(size=size, dtype=np.float32, method='inv')
+        self.check_numpy_parity(dist_func)
+        self.check_numpy_parity(dist_func, bitgen_instance=MT19937)
+
+    def test_standard_gamma(self):
+        dist_func = lambda x, size:\
+            x.standard_gamma(shape=3.0, size=size)
+        self.check_numpy_parity(dist_func)
+        self.check_numpy_parity(dist_func, bitgen_instance=MT19937)
+
+        dist_func = lambda x, size:\
+            x.standard_gamma(shape=3.0, size=size, dtype=np.float32)
+        self.check_numpy_parity(dist_func)
+        self.check_numpy_parity(dist_func, bitgen_instance=MT19937)
+
+    def test_normal(self):
+        dist_func = lambda x, size:\
+            x.normal(loc=1.5, scale=3, size=size)
+        self.check_numpy_parity(dist_func)
+        self.check_numpy_parity(dist_func, bitgen_instance=MT19937)
+
+    def test_exponential(self):
+        dist_func = lambda x, size:\
+            x.exponential(scale=1.5,size=size)
+        self.check_numpy_parity(dist_func)
+        self.check_numpy_parity(dist_func, bitgen_instance=MT19937)
+
+    def test_gamma(self):
+        dist_func = lambda x, size:\
+            x.gamma(shape=5.0, scale=1.5, size=size)
         self.check_numpy_parity(dist_func)
         self.check_numpy_parity(dist_func, bitgen_instance=MT19937)
