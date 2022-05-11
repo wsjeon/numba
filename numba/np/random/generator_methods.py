@@ -1,3 +1,4 @@
+
 import numpy as np
 from numba.core import types
 from numba.core.extending import overload_method
@@ -7,9 +8,14 @@ from numba.np.random.generator_core import next_float, next_double
 from numba.np.random.distributions import \
     (random_standard_exponential_inv_f, random_standard_exponential_inv,
      random_standard_exponential, random_standard_normal_f,
-     random_standard_gamma, random_standard_normal,
+     random_standard_gamma, random_standard_normal, random_power,
      random_standard_exponential_f, random_standard_gamma_f, random_normal,
-     random_exponential, random_gamma)
+     random_exponential, random_gamma, random_beta,
+     random_f,random_chisquare,random_standard_cauchy,random_pareto,
+     random_weibull, random_laplace, random_gumbel, random_logistic,
+     random_lognormal, random_rayleigh, random_standard_t, random_wald,
+     random_vonmises, random_geometric, random_zipf, random_triangular,
+     random_poisson, random_negative_binomial)
 
 
 registry = Registry('generator_methods')
@@ -196,5 +202,386 @@ def NumPyRandomGeneratorType_gamma(inst, shape, scale=1.0, size=None):
             out = np.empty(size)
             for i in np.ndindex(size):
                 out[i] = random_gamma(inst.bit_generator, shape, scale)
+            return out
+        return impl
+
+
+# Overload the Generator().beta() method
+@overload_method(types.NumPyRandomGeneratorType, 'beta')
+def NumPyRandomGeneratorType_beta(inst, a, b, size=None):
+
+    if isinstance(size, types.Omitted):
+        size = size.value
+
+    if isinstance(size, (types.NoneType,)) or size is None:
+        def impl(inst, a, b, size=None):
+            return random_beta(inst.bit_generator, a, b)
+        return impl
+    else:
+        def impl(inst, a, b, size=None):
+            out = np.empty(size)
+            for i in np.ndindex(size):
+                out[i] = random_beta(inst.bit_generator, a, b)
+            return out
+        return impl
+
+
+# Overload the Generator().chisquare() method
+@overload_method(types.NumPyRandomGeneratorType, 'f')
+def NumPyRandomGeneratorType_f(inst, dfnum, dfden, size=None):
+    if isinstance(size, types.Omitted):
+        size = size.value
+
+    if isinstance(size, (types.NoneType,)) or size is None:
+        def impl(inst, dfnum, dfden, size=None):
+            return random_f(inst.bit_generator, dfnum, dfden)
+        return impl
+    else:
+        def impl(inst, dfnum, dfden, size=None):
+            out = np.empty(size)
+            for i in np.ndindex(size):
+                out[i] = random_f(inst.bit_generator, dfnum, dfden)
+            return out
+        return impl
+
+
+@overload_method(types.NumPyRandomGeneratorType, 'chisquare')
+def NumPyRandomGeneratorType_chisquare(inst, df, size=None):
+
+    if isinstance(size, types.Omitted):
+        size = size.value
+
+    if isinstance(size, (types.NoneType,)) or size is None:
+        def impl(inst, df, size=None):
+            return random_chisquare(inst.bit_generator, df)
+        return impl
+    else:
+        def impl(inst, df, size=None):
+            out = np.empty(size)
+            for i in np.ndindex(size):
+                out[i] = random_chisquare(inst.bit_generator, df)
+            return out
+        return impl
+
+
+@overload_method(types.NumPyRandomGeneratorType, 'standard_cauchy')
+def NumPyRandomGeneratorType_standard_cauchy(inst, size=None):
+
+    if isinstance(size, types.Omitted):
+        size = size.value
+
+    if isinstance(size, (types.NoneType,)) or size is None:
+        def impl(inst, size=None):
+            return random_standard_cauchy(inst.bit_generator)
+        return impl
+    else:
+        def impl(inst, size=None):
+            out = np.empty(size)
+            for i in np.ndindex(size):
+                out[i] = random_standard_cauchy(inst.bit_generator)
+            return out
+        return impl
+
+
+@overload_method(types.NumPyRandomGeneratorType, 'pareto')
+def NumPyRandomGeneratorType_pareto(inst, a, size=None):
+
+    if isinstance(size, types.Omitted):
+        size = size.value
+
+    if isinstance(size, (types.NoneType,)) or size is None:
+        def impl(inst, a, size=None):
+            return random_pareto(inst.bit_generator, a)
+        return impl
+    else:
+        def impl(inst, a, size=None):
+            out = np.empty(size)
+            for i in np.ndindex(size):
+                out[i] = random_pareto(inst.bit_generator, a)
+            return out
+        return impl
+
+
+@overload_method(types.NumPyRandomGeneratorType, 'weibull')
+def NumPyRandomGeneratorType_weibull(inst, a, size=None):
+
+    if isinstance(size, types.Omitted):
+        size = size.value
+
+    if isinstance(size, (types.NoneType,)) or size is None:
+        def impl(inst, a, size=None):
+            return random_weibull(inst.bit_generator, a)
+        return impl
+    else:
+        def impl(inst, a, size=None):
+            out = np.empty(size)
+            for i in np.ndindex(size):
+                out[i] = random_weibull(inst.bit_generator, a)
+            return out
+        return impl
+
+
+@overload_method(types.NumPyRandomGeneratorType, 'power')
+def NumPyRandomGeneratorType_power(inst, a, size=None):
+    if isinstance(size, types.Omitted):
+        size = size.value
+
+    if isinstance(size, (types.NoneType,)) or size is None:
+        def impl(inst, a, size=None):
+            return random_power(inst.bit_generator, a)
+        return impl
+    else:
+        def impl(inst, a, size=None):
+            out = np.empty(size)
+            for i in np.ndindex(size):
+                out[i] = random_power(inst.bit_generator, a)
+            return out
+        return impl
+
+
+@overload_method(types.NumPyRandomGeneratorType, 'laplace')
+def NumPyRandomGeneratorType_laplace(inst, loc=0.0, scale=1.0, size=None):
+
+    if isinstance(size, types.Omitted):
+        size = size.value
+
+    if isinstance(size, (types.NoneType,)) or size is None:
+        def impl(inst, loc=0.0, scale=1.0, size=None):
+            return random_laplace(inst.bit_generator, loc, scale)
+        return impl
+    else:
+        def impl(inst, loc=0.0, scale=1.0, size=None):
+            out = np.empty(size)
+            for i in np.ndindex(size):
+                out[i] = random_laplace(inst.bit_generator, loc, scale)
+            return out
+        return impl
+
+
+@overload_method(types.NumPyRandomGeneratorType, 'gumbel')
+def NumPyRandomGeneratorType_gumbel(inst, loc=0.0, scale=1.0, size=None):
+
+    if isinstance(size, types.Omitted):
+        size = size.value
+
+    if isinstance(size, (types.NoneType,)) or size is None:
+        def impl(inst, loc=0.0, scale=1.0, size=None):
+            return random_gumbel(inst.bit_generator, loc, scale)
+        return impl
+    else:
+        def impl(inst, loc=0.0, scale=1.0, size=None):
+            out = np.empty(size)
+            for i in np.ndindex(size):
+                out[i] = random_gumbel(inst.bit_generator, loc, scale)
+            return out
+        return impl
+
+
+@overload_method(types.NumPyRandomGeneratorType, 'logistic')
+def NumPyRandomGeneratorType_logistic(inst, loc=0.0, scale=1.0, size=None):
+
+    if isinstance(size, types.Omitted):
+        size = size.value
+
+    if isinstance(size, (types.NoneType,)) or size is None:
+        def impl(inst, loc=0.0, scale=1.0, size=None):
+            return random_logistic(inst.bit_generator, loc, scale)
+        return impl
+    else:
+        def impl(inst, loc=0.0, scale=1.0, size=None):
+            out = np.empty(size)
+            for i in np.ndindex(size):
+                out[i] = random_logistic(inst.bit_generator, loc, scale)
+            return out
+        return impl
+
+
+@overload_method(types.NumPyRandomGeneratorType, 'lognormal')
+def NumPyRandomGeneratorType_lognormal(inst, mean=0.0, sigma=1.0, size=None):
+
+    if isinstance(size, types.Omitted):
+        size = size.value
+
+    if isinstance(size, (types.NoneType,)) or size is None:
+        def impl(inst, mean=0.0, sigma=1.0, size=None):
+            return random_lognormal(inst.bit_generator, mean, sigma)
+        return impl
+    else:
+        def impl(inst, mean=0.0, sigma=1.0, size=None):
+            out = np.empty(size)
+            for i in np.ndindex(size):
+                out[i] = random_lognormal(inst.bit_generator, mean, sigma)
+            return out
+        return impl
+
+
+@overload_method(types.NumPyRandomGeneratorType, 'rayleigh')
+def NumPyRandomGeneratorType_rayleigh(inst, scale=1.0, size=None):
+
+    if isinstance(size, types.Omitted):
+        size = size.value
+
+    if isinstance(size, (types.NoneType,)) or size is None:
+        def impl(inst, scale=1.0, size=None):
+            return random_rayleigh(inst.bit_generator, scale)
+        return impl
+    else:
+        def impl(inst, scale=1.0, size=None):
+            out = np.empty(size)
+            for i in np.ndindex(size):
+                out[i] = random_rayleigh(inst.bit_generator, scale)
+            return out
+        return impl
+
+
+@overload_method(types.NumPyRandomGeneratorType, 'standard_t')
+def NumPyRandomGeneratorType_standard_t(inst, df, size=None):
+
+    if isinstance(size, types.Omitted):
+        size = size.value
+
+    if isinstance(size, (types.NoneType,)) or size is None:
+        def impl(inst, df, size=None):
+            return random_standard_t(inst.bit_generator, df)
+        return impl
+    else:
+        def impl(inst, df, size=None):
+            out = np.empty(size)
+            for i in np.ndindex(size):
+                out[i] = random_standard_t(inst.bit_generator, df)
+            return out
+        return impl
+
+
+@overload_method(types.NumPyRandomGeneratorType, 'wald')
+def NumPyRandomGeneratorType_wald(inst, mean, scale, size=None):
+
+    if isinstance(size, types.Omitted):
+        size = size.value
+
+    if isinstance(size, (types.NoneType,)) or size is None:
+        def impl(inst, mean, scale, size=None):
+            return random_wald(inst.bit_generator, mean, scale)
+        return impl
+    else:
+        def impl(inst, mean, scale, size=None):
+            out = np.empty(size)
+            for i in np.ndindex(size):
+                out[i] = random_wald(inst.bit_generator, mean, scale)
+            return out
+        return impl
+
+
+@overload_method(types.NumPyRandomGeneratorType, 'vonmises')
+def NumPyRandomGeneratorType_vonmises(inst, mu, kappa, size=None):
+
+    if isinstance(size, types.Omitted):
+        size = size.value
+
+    if isinstance(size, (types.NoneType,)) or size is None:
+        def impl(inst, mu, kappa, size=None):
+            return random_vonmises(inst.bit_generator, mu, kappa)
+        return impl
+    else:
+        def impl(inst, mu, kappa, size=None):
+            out = np.empty(size)
+            for i in np.ndindex(size):
+                out[i] = random_vonmises(inst.bit_generator, mu, kappa)
+            return out
+        return impl
+
+
+@overload_method(types.NumPyRandomGeneratorType, 'geometric')
+def NumPyRandomGeneratorType_geometric(inst, p, size=None):
+
+    if isinstance(size, types.Omitted):
+        size = size.value
+
+    if isinstance(size, (types.NoneType,)) or size is None:
+        def impl(inst, p, size=None):
+            return random_geometric(inst.bit_generator, p)
+        return impl
+    else:
+        def impl(inst, p, size=None):
+            out = np.empty(size)
+            for i in np.ndindex(size):
+                out[i] = random_geometric(inst.bit_generator, p)
+            return out
+        return impl
+
+
+@overload_method(types.NumPyRandomGeneratorType, 'zipf')
+def NumPyRandomGeneratorType_zipf(inst, a, size=None):
+
+    if isinstance(size, types.Omitted):
+        size = size.value
+
+    if isinstance(size, (types.NoneType,)) or size is None:
+        def impl(inst, a, size=None):
+            return random_zipf(inst.bit_generator, a)
+        return impl
+    else:
+        def impl(inst, a, size=None):
+            out = np.empty(size)
+            for i in np.ndindex(size):
+                out[i] = random_zipf(inst.bit_generator, a)
+            return out
+        return impl
+
+
+@overload_method(types.NumPyRandomGeneratorType, 'triangular')
+def NumPyRandomGeneratorType_triangular(inst, left, mode, right, size=None):
+
+    if isinstance(size, types.Omitted):
+        size = size.value
+
+    if isinstance(size, (types.NoneType,)) or size is None:
+        def impl(inst, left, mode, right, size=None):
+            return random_triangular(inst.bit_generator, left, mode, right)
+        return impl
+    else:
+        def impl(inst, left, mode, right, size=None):
+            out = np.empty(size)
+            for i in np.ndindex(size):
+                out[i] = random_triangular(inst.bit_generator,
+                                           left, mode, right)
+            return out
+        return impl
+
+
+@overload_method(types.NumPyRandomGeneratorType, 'poisson')
+def NumPyRandomGeneratorType_poisson(inst, lam , size=None):
+
+    if isinstance(size, types.Omitted):
+        size = size.value
+
+    if isinstance(size, (types.NoneType,)) or size is None:
+        def impl(inst, lam , size=None):
+            return random_poisson(inst.bit_generator, lam)
+        return impl
+    else:
+        def impl(inst, lam , size=None):
+            out = np.empty(size)
+            for i in np.ndindex(size):
+                out[i] = random_poisson(inst.bit_generator, lam)
+            return out
+        return impl
+
+
+@overload_method(types.NumPyRandomGeneratorType, 'negative_binomial')
+def NumPyRandomGeneratorType_negative_binomial(inst, n, p, size=None):
+
+    if isinstance(size, types.Omitted):
+        size = size.value
+
+    if isinstance(size, (types.NoneType,)) or size is None:
+        def impl(inst,  n, p , size=None):
+            return random_negative_binomial(inst.bit_generator, n, p)
+        return impl
+    else:
+        def impl(inst, n, p , size=None):
+            out = np.empty(size)
+            for i in np.ndindex(size):
+                out[i] = random_negative_binomial(inst.bit_generator, n, p)
             return out
         return impl
