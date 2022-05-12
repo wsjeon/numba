@@ -347,3 +347,161 @@ def _randint_arg_check(low, high, endpoint, lower_bound, upper_bound):
         raise ValueError("low is greater than high in given interval")
     rng = (high - low)
     return low, rng
+
+
+@register_jitable
+def _shuffle_int(bitgen, n, first, data):
+    for i in range(n, first, -1):
+        j = random_bounded_uint64_fill(bitgen, 0, i, None, 1, np.uint64)[0]
+        data[i], data[j] = data[j], data[i]
+    return data
+
+
+@register_jitable
+def _choice(bitgen_inst, a, size, replace, p, axis, shuffle):
+    pop_size = a.shape[axis]
+
+    if p is not None:
+        atol = np.sqrt(np.finfo(np.float64).eps)
+        if isinstance(p, np.ndarray):
+            if np.issubdtype(p.dtype, np.floating):
+                atol = max(atol, np.sqrt(np.finfo(p.dtype).eps))
+
+    flat_size = np.prod(np.array(size))
+
+    # Actual sampling
+    if replace:
+        if p is not None:
+            cdf = p.cumsum()
+            cdf /= cdf[-1]
+            uniform_samples = bitgen_inst.random(size)
+            idx = cdf.searchsorted(uniform_samples, side='right')
+            # searchsorted returns a scalar
+            idx = np.array(idx, copy=False, dtype=np.int64)
+        else:
+            idx = bitgen_inst.integers(0, pop_size, size=size, dtype=np.int64)
+    else:
+        if flat_size > pop_size:
+            raise ValueError("Cannot take a larger sample than "
+                             "population when replace is False")
+        elif flat_size < 0:
+            raise ValueError("negative dimensions are not allowed")
+
+        if p is not None:
+            if np.count_nonzero(p > 0) < flat_size:
+                raise ValueError("Fewer non-zero entries in p than size")
+            n_uniq = 0
+            p = p.copy()
+            found = np.zeros(size, dtype=np.int64)
+            flat_found = found.ravel()
+            while n_uniq < flat_size:
+                x = bitgen_inst.random((flat_size - n_uniq,))
+                if n_uniq > 0:
+                    p[flat_found[0:n_uniq]] = 0
+                cdf = np.cumsum(p)
+                cdf /= cdf[-1]
+                new = cdf.searchsorted(x, side='right')
+                _, unique_indices = np.unique(new, return_index=True)
+                unique_indices.sort()
+                new = new.take(unique_indices)
+                flat_found[n_uniq:n_uniq + new.size] = new
+                n_uniq += new.size
+            idx = found
+        else:
+            size_i = flat_size
+            pop_size_i = pop_size
+            # This is a heuristic tuning. should be improvable
+            if shuffle:
+                cutoff = 50
+            else:
+                cutoff = 20
+            if pop_size_i > 10000 and (size_i > (pop_size_i // cutoff)):
+                # Tail shuffle size elements
+                idx = np.arange(0, pop_size_i)
+                idx = _shuffle_int(bitgen_inst.bit_generator, pop_size_i,
+                                   max(pop_size_i - size_i, 1), idx)
+                # Copy to allow potentially large array backing idx to be gc
+                idx = idx[(pop_size - flat_size):].copy()
+            else:
+                # Floyd's algorithm
+                idx = np.empty(int(flat_size), dtype=np.int64)
+                # smallest power of 2 larger than 1.2 * flat_size
+                set_size = (1.2 * size_i)
+                mask = gen_mask(int(set_size))
+                set_size = 1 + mask
+                hash_set = np.full(set_size, UINT64_MAX - 1, np.uint64)
+                for j in range(pop_size_i - size_i, pop_size_i):
+                    val = random_bounded_uint64_fill(bitgen_inst.bit_generator,
+                                                     0, j, None, 1, np.int64)[0]
+                    loc = val & mask
+                    while hash_set[loc] != UINT64_MAX - 1 \
+                            and hash_set[loc] != val:
+                        loc = (loc + 1) & mask
+                    if hash_set[loc] == UINT64_MAX - 1:
+                        hash_set[loc] = val
+                        idx[int(j - pop_size_i + size_i)] = val
+                    else: # we need to insert j instead
+                        loc = j & mask
+                        while hash_set[loc] != UINT64_MAX - 1:
+                            loc = (loc + 1) & mask
+                        hash_set[loc] = j
+                        idx[int(j - pop_size_i + size_i)] = j
+                if shuffle:
+                    idx = _shuffle_int(bitgen_inst.bit_generator,
+                                       size_i, 1, idx)
+
+    return idx
+
+
+def random_interval(bitgen, _max):
+    if (_max == 0):
+        return 0
+
+    mask = _max
+
+    # /* Smallest bit mask >= max */
+    mask |= mask >> 1
+    mask |= mask >> 2
+    mask |= mask >> 4
+    mask |= mask >> 8
+    mask |= mask >> 16
+    mask |= mask >> 32
+
+    # /* Search a random value in [0..mask] <= max */
+    if (_max <= 0xffffffff):
+        value = next_uint32(bitgen)
+        while (value & mask) > _max:
+            value = next_uint32(bitgen)
+    else:
+        value = next_uint64(bitgen)
+        while (value & mask) > _max:
+            value = next_uint64(bitgen)
+
+    return value
+
+
+def _shuffle(bitgen, x, axis=0):
+
+    if isinstance(x, np.ndarray):
+        if x.size == 0:
+            return x
+
+        x = np.swapaxes(x, 0, axis)
+        buf = np.empty_like(x[0, ...])
+        for i in range(len(x) - 1, 0, -1):
+            j = random_interval(bitgen, i)
+            if i == j:
+                continue
+            buf[...] = x[j]
+            x[j] = x[i]
+            x[i] = buf
+    else:
+        if axis != 0:
+            raise NotImplementedError("Axis argument is only supported "
+                                      "on ndarray objects")
+
+        for i in range(x.size - 1, 0, -1):
+            j = random_interval(bitgen, i)
+            x[i], x[j] = x[j], x[i]
+
+    return x

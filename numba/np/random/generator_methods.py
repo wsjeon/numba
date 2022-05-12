@@ -19,8 +19,8 @@ from numba.np.random.distributions import \
 from numba.np.random.random_methods import \
     (random_bounded_uint64_fill, random_bounded_uint32_fill,
      random_bounded_uint16_fill, random_bounded_uint8_fill,
-     random_bounded_bool_fill, _randint_arg_check)
-
+     random_bounded_bool_fill, _randint_arg_check, _choice)
+from numba.core.extending import register_jitable
 
 registry = Registry('generator_methods')
 
@@ -121,6 +121,51 @@ def NumPyRandomGeneratorType_integers(inst, low, high=None, size=None,
             mask = None
             return int_func(inst.bit_generator, low, rng, mask, size, dtype)
         return impl
+
+
+# Overload the Generator().choice()
+@overload_method(types.NumPyRandomGeneratorType, 'choice')
+def NumPyRandomGeneratorType_choice(inst, a, size=None, replace=True,
+                                    p=None, axis=0, shuffle=True):
+
+    if isinstance(a, types.Integer):
+        @register_jitable
+        def array_maker(a):
+            return np.arange(a)
+    else:
+        @register_jitable
+        def array_maker(a):
+            return a
+    if isinstance(size, types.Omitted):
+        size = size.value
+
+    if isinstance(size, (types.NoneType,)) or size is None:
+        def impl(inst, a, size=None, replace=True,
+                 p=None, axis=0, shuffle=True):
+            return _choice(inst, array_maker(a), 1,
+                           replace, p, axis, shuffle)[0]
+        return impl
+    else:
+        def impl(inst, a, size=None, replace=True,
+                 p=None, axis=0, shuffle=True):
+            return _choice(inst, array_maker(a), size,
+                           replace, p, axis, shuffle)
+        return impl
+
+
+# Fails right now since .tobytes() method of Numpy arrays
+# is not yet supported in Numba
+# Overload the Generator().bytes()
+
+# @overload_method(types.NumPyRandomGeneratorType, 'bytes')
+# def NumPyRandomGeneratorType_bytes(inst, length):
+#     def impl(inst, length):
+#         _size = ((length - 1) // 4 + 1)
+#         # Interpret the uint32s as little-endian to convert them to bytes
+#         # consistently.
+#         return inst.integers(0, 4294967296, size=_size, dtype=np.uint32)\
+#             .astype('<u4').tobytes()[:length]
+#     return impl
 
 
 # Overload the Generator().random()

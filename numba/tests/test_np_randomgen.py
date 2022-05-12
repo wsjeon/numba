@@ -7,7 +7,8 @@ from numpy.random import MT19937, Generator
 
 class TestRandomGenerators(TestCase):
     def check_numpy_parity(self, distribution_func,
-                           bitgen_instance=None, seed=10):
+                           bitgen_instance=None, seed=10,
+                           test_sizes=None):
         distribution_func = numba.njit(distribution_func)
         if bitgen_instance is None:
             numba_rng_instance = np.random.default_rng(seed=seed)
@@ -16,8 +17,12 @@ class TestRandomGenerators(TestCase):
             numba_rng_instance = Generator(bitgen_instance(seed))
             numpy_rng_instance = Generator(bitgen_instance(seed))
 
+        if test_sizes is None:
+            # Default sizes for testing
+            test_sizes = [None, (), (100,), (10,20,30)]
+
         # Check parity for different size cases
-        for size in [None, (), (100,), (10,20,30)]:
+        for size in test_sizes:
             numba_res = distribution_func(numba_rng_instance, size)
             numpy_res = distribution_func.py_func(numpy_rng_instance,
                                                   size)
@@ -43,6 +48,19 @@ class TestRandomGenerators(TestCase):
         dist_func = lambda x, size:x.integers(5, 10, size=size, endpoint=True)
         self.check_numpy_parity(dist_func)
         self.check_numpy_parity(dist_func, bitgen_instance=MT19937)
+
+    def test_choice(self):
+        dist_func = lambda x, size:x.choice(100, size=size)
+        self.check_numpy_parity(dist_func)
+        self.check_numpy_parity(dist_func, bitgen_instance=MT19937)
+
+    # Fails right now since .tobytes() method of Numpy arrays
+    # is not yet supported in Numba
+    # def test_bytes(self):
+        # dist_func = lambda x, size:x.bytes(length=size)
+        # self.check_numpy_parity(dist_func, test_sizes=[1, 1000])
+        # self.check_numpy_parity(dist_func, bitgen_instance=MT19937,
+        #                         test_sizes=[1, 1000])
 
     def test_random(self):
         dist_func = lambda x, size:x.random(size=size)
