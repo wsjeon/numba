@@ -16,6 +16,10 @@ from numba.np.random.distributions import \
      random_lognormal, random_rayleigh, random_standard_t, random_wald,
      random_vonmises, random_geometric, random_zipf, random_triangular,
      random_poisson, random_negative_binomial)
+from numba.np.random.random_methods import \
+    (random_bounded_uint64_fill, random_bounded_uint32_fill,
+     random_bounded_uint16_fill, random_bounded_uint8_fill,
+     random_bounded_bool_fill, _randint_arg_check)
 
 
 registry = Registry('generator_methods')
@@ -41,6 +45,82 @@ def get_proper_func(func_32, func_64, dtype):
         next_func = func_64
 
     return next_func, nb_dt
+
+
+# Overload the Generator().integers()
+@overload_method(types.NumPyRandomGeneratorType, 'integers')
+def NumPyRandomGeneratorType_integers(inst, low, high=None, size=None,
+                                      dtype=np.int64, endpoint=False):
+
+    if isinstance(size, types.Omitted):
+        size = size.value
+
+    if isinstance(dtype, types.Omitted):
+        dtype = dtype.value
+
+    if not isinstance(dtype, types.Type):
+        dt = np.dtype(dtype)
+        nb_dt = from_dtype(dt)
+        _dtype = dtype
+    else:
+        nb_dt = dtype
+        _dtype = as_dtype(nb_dt)
+
+    if _dtype == np.int32:
+        int_func = random_bounded_uint32_fill
+        lower_bound = -0x80000000
+        upper_bound = 0x7FFFFFFF
+    elif _dtype == np.int64:
+        int_func = random_bounded_uint64_fill
+        lower_bound = -0x8000000000000000
+        upper_bound = 0x7FFFFFFFFFFFFFFF
+    elif _dtype == np.int16:
+        int_func = random_bounded_uint16_fill
+        lower_bound = -0x8000
+        upper_bound = 0xFFFF
+    elif _dtype == np.int8:
+        int_func = random_bounded_uint8_fill
+        lower_bound = -0x80
+        upper_bound = 0xFF
+    elif _dtype == np.uint32:
+        int_func = random_bounded_uint32_fill
+        lower_bound = -0x80000000
+        upper_bound = 0x7FFFFFFF
+    elif _dtype == np.uint64:
+        int_func = random_bounded_uint64_fill
+        lower_bound = -0x8000000000000000
+        upper_bound = 0x7FFFFFFFFFFFFFFF
+    elif _dtype == np.uint16:
+        int_func = random_bounded_uint16_fill
+        lower_bound = -0x8000
+        upper_bound = 0xFFFF
+    elif _dtype == np.uint8:
+        int_func = random_bounded_uint8_fill
+        lower_bound = -0x80
+        upper_bound = 0xFF
+    elif _dtype == np.bool_:
+        int_func = random_bounded_bool_fill
+        lower_bound = -1
+        upper_bound = 2
+    else:
+        raise TypeError('Unsupported dtype %r for integers' % _dtype)
+
+    if isinstance(size, (types.NoneType,)) or size is None:
+        def impl(inst, low, high=None, size=None,
+                 dtype=np.int64, endpoint=False):
+            low, rng = _randint_arg_check(low, high, endpoint,
+                                          lower_bound, upper_bound)
+            mask = None
+            return int_func(inst.bit_generator, low, rng, mask, 1, dtype)[0]
+        return impl
+    else:
+        def impl(inst, low, high=None, size=None,
+                 dtype=np.int64, endpoint=False):
+            low, rng = _randint_arg_check(low, high, endpoint,
+                                          lower_bound, upper_bound)
+            mask = None
+            return int_func(inst.bit_generator, low, rng, mask, size, dtype)
+        return impl
 
 
 # Overload the Generator().random()

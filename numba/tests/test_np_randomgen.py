@@ -33,6 +33,17 @@ class TestRandomGenerators(TestCase):
             assert np.all(numba_gen_state[_state_key]
                           == numpy_gen_state[_state_key])
 
+    def test_integers(self):
+        np_int_dtypes = [np.int64, np.int32, np.int16, np.int8, np.bool_]
+        for dtype in np_int_dtypes:
+            dist_func = lambda x, size:x.integers(1, size=size, dtype=dtype)
+            self.check_numpy_parity(dist_func)
+            self.check_numpy_parity(dist_func, bitgen_instance=MT19937)
+
+        dist_func = lambda x, size:x.integers(5, 10, size=size, endpoint=True)
+        self.check_numpy_parity(dist_func)
+        self.check_numpy_parity(dist_func, bitgen_instance=MT19937)
+
     def test_random(self):
         dist_func = lambda x, size:x.random(size=size)
         self.check_numpy_parity(dist_func)
