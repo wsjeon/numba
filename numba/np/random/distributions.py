@@ -331,7 +331,7 @@ def random_lognormal(bitgen, mean, sigma):
 
 @register_jitable
 def random_rayleigh(bitgen, mode):
-    return mode * np.sqrt(2.0 * random_standard_exponential(bitgen))
+    return mode * np.sqrt(2.0 * random_standard_exponential_inv(bitgen))
 
 
 @register_jitable
@@ -468,7 +468,7 @@ def random_loggam(x):
     if ((x == 1.0) or (x == 2.0)):
         return 0.0
     elif (x < 7.0):
-        n = (7 - x)
+        n = int(7 - x)
     else:
         n = 0
 
@@ -478,13 +478,13 @@ def random_loggam(x):
     lg2pi = 1.8378770664093453e+00
     gl0 = a[9]
 
-    for k in range(0, 8):
+    for k in range(0, 9):
         gl0 *= x2
         gl0 += a[8 - k]
 
     gl = gl0 / x0 + 0.5 * lg2pi + (x0 - 0.5) * np.log(x0) - x0
     if (x < 7.0):
-        for k in range(1, n):
+        for k in range(1, n + 1):
             gl = gl - np.log(x0 - 1.0)
             x0 = x0 - 1.0
 
@@ -519,7 +519,7 @@ def random_poisson_ptrs(bitgen, lam):
         U = next_double(bitgen) - 0.5
         V = next_double(bitgen)
         us = 0.5 - np.fabs(U)
-        k = int(((2 * a / us + b) * U + lam + 0.43))
+        k = int((2 * a / us + b) * U + lam + 0.43)
         if ((us >= 0.07) and (V <= vr)):
             return k
 
